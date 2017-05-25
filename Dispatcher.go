@@ -9,6 +9,11 @@ const (
 	DISPATCH_MODE_WIDTH
 )
 
+type ResponsePack struct {
+	response *Response
+	callback RequestCallback
+}
+
 type Dispatcher struct {
 	config map[string]int
 	net *NetService
@@ -16,27 +21,22 @@ type Dispatcher struct {
 
 	itemChan chan *BaseItem
 	requestChan chan *Request
-	jobChan chan int
-
-	startJobChan chan int
-	stopJobChan chan int
+	responseChan chan *ResponsePack
 }
 
-func New() *Dispatcher{
-	dispatcher := &Dispatcher{
+func NewDispatcher() *Dispatcher{
+	const MAX_PROCS = runtime.GOMAXPROCS(0)
+	self := &Dispatcher{
 		config:{
 			"mode":DISPATCH_MODE_DEPTH,//遍历模式
 		},
 		net:nil,
 
-		itemChan:make(chan *BaseItem),
-		requestChan:make(chan *Request),
-		startJobChan:make(chan int, 1),
-		stopJobChan:make(chan int, 1),
+		itemChan:make(chan *BaseItem, MAX_PROCS / 2),
+		requestChan:make(chan *Request, MAX_PROCS / 2),
+		responseChan:make(chan *Response, MAX_PROCS / 2),
 	}
-	dispatcher.jobChan = make(chan int, runtime.GOMAXPROCS(0))
-	dispatcher.stopJobChan<-1//表示已经停止了,没有任务待分发
-	return dispatcher
+	return self
 }
 
 func (self *Dispatcher)SetNetService(net *NetService){
@@ -44,31 +44,54 @@ func (self *Dispatcher)SetNetService(net *NetService){
 }
 
 func (self *Dispatcher)Dispatch(spiders... *BaseSpider){
-	go self.do_dispatch_request()
-	go self.do_dispatch_item()
+	for i := 0; i < cap(self.requestChan); i++ {
+		go self.handleRequest()
+	}
+	for i := 0; i < cap(self.itemChan); i++ {
+		go self.handleItem()
+	}
+	for i := 0; i < cap(self.responseChan); i++ {
+		go self.handleResponse()
+	}
 
 	for _, spider := range spiders{
-		self.dispatch_request_or_items(spider.GetStartRequests(nil))
+		for _, request := range spider.GetStartRequests(nil) {
+			self.requestChan <- request
+		}
 	}
 
 	self.do_dispatch_job()
 }
 
-func (self *Dispatcher)do_dispatch_request(){
+func (self *Dispatcher)handleRequest(){
 	for {
 		request := <-self.requestChan
-		append(self.requests, request)//先扩容
-		if cur_mode := self.config["mode"]; cur_mode == DISPATCH_MODE_DEPTH{
-			//队列头部插入
-			copy_len := len(self.requests)
-			copy(self.requests[1:copy_len], self.requests[0:copy_len - 1])
-			self.requests[0] = request
+		//append(self.requests, request)//先扩容
+		//if cur_mode := self.config["mode"]; cur_mode == DISPATCH_MODE_DEPTH{
+		//	//队列头部插入
+		//	copy_len := len(self.requests)
+		//	copy(self.requests[1:copy_len], self.requests[0:copy_len - 1])
+		//	self.requests[0] = request
+		//}
+		response := self.net.SendRequest(request)
+		self.responseChan<- &ResponsePack{response, request.callback}
+	}
+}
+
+func (self *Dispatcher)handleResponse(){
+	for {
+		responsePack := <-self.responseChan
+		request_or_items := responsePack.callback(responsePack.response)
+		for _, request_or_item := range request_or_items {
+			switch request_or_item := request_or_item.(type) {
+			case *Request:
+				self.requestChan<- request_or_item//只能宽度优先了....
+			case *BaseItem:
+				self.itemChan<- request_or_item
+			default:
+			}
 		}
-		select {
-		case <-self.stopJobChan://必须要有一个缓冲才好
-			self.startJobChan<-1
-		default:
-		}
+
 	}
 }
 
