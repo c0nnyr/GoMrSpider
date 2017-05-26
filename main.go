@@ -4,8 +4,7 @@ import (
 )
 
 func main() {
-	dispatcher := &Dispatcher{}
-	net := &NetService{}
-	dispatcher.SetNetService(net)
+	dispatcher := NewDispatcher()
+	dispatcher.SetNetService(&NetService{})
 	dispatcher.Dispatch(NewTestSpider())
 }

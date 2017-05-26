@@ -19,7 +19,7 @@ type Dispatcher struct {
 	net *NetService
 	requests []*Request
 
-	itemChan chan *BaseItem
+	itemChan chan IBaseItem
 
 	requestChan chan *Request
 	requestHeadChan chan *Request
@@ -32,15 +32,15 @@ func NewDispatcher() *Dispatcher{
 	const MAX_PROCS = 1
 	fmt.Println("max procs %s", MAX_PROCS)
 	self := &Dispatcher{
-		config:{
+		config:map[string]int{
 			"mode":DISPATCH_MODE_DEPTH,//遍历模式
 		},
 		net:nil,
 
-		itemChan:make(chan *BaseItem, MAX_PROCS),
+		itemChan:make(chan IBaseItem, MAX_PROCS),
 		requestChan:make(chan *Request, MAX_PROCS),
 		requestHeadChan:make(chan *Request, MAX_PROCS),
-		responseChan:make(chan *Response, MAX_PROCS),
+		responseChan:make(chan *ResponsePack, MAX_PROCS),
 	}
 	return self
 }
@@ -49,7 +49,7 @@ func (self *Dispatcher)SetNetService(net *NetService){
 	self.net = net
 }
 
-func (self *Dispatcher)Dispatch(spiders... *BaseSpider){
+func (self *Dispatcher)Dispatch(spiders... IBaseSpider){
 	for i := 0; i < cap(self.requestChan); i++ {
 		go self.handleRequest(i)
 	}
@@ -63,7 +63,9 @@ func (self *Dispatcher)Dispatch(spiders... *BaseSpider){
 	fmt.Println("Dispatching spiders")
 	for _, spider := range spiders{
 		for _, request := range spider.GetStartRequests(nil) {
-			self.requestChan <- request
+			if request, ok := request.(*Request); ok{
+				self.requestChan <- request
+			}
 		}
 	}
 }
@@ -98,13 +100,13 @@ func (self *Dispatcher)handleResponse(ind int){
 		requestOrItems := responsePack.callback(responsePack.response)
 		for _, requestOrItem := range requestOrItems {
 			switch requestOrItem := requestOrItem.(type) {
-			case *Request:
+			case *Request://先判断这个
 				if mode := self.config["mode"]; mode == DISPATCH_MODE_DEPTH {
 					self.requestHeadChan <- requestOrItem
 				} else if mode == DISPATCH_MODE_WIDTH{
 					self.requestChan<- requestOrItem
 				}
-			case *BaseItem:
+			case IBaseItem:
 				self.itemChan<- requestOrItem
 			default:
 			}

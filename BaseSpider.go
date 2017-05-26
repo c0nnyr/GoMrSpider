@@ -4,25 +4,30 @@ import (
 	"fmt"
 )
 
+type IBaseSpider  interface {
+	GetStartRequests(_ *Response) (requestOrItems RequestOrItems)
+	Parse(response *Response) (requestOrItems RequestOrItems)
+}
+
 type BaseSpider struct {
 	start_urls []string
-	metas [][]string
+	metas [][]interface{}
 }
 
 func (self *BaseSpider)GetStartRequests(_ *Response) (requestOrItems RequestOrItems){
 	if self.metas == nil {
-		for ind := range self.start_urls {
+		for _, start_url := range self.start_urls {
 			requestOrItems = append(requestOrItems, &Request{
 				method:"GET",
-				url:self.start_urls[ind],
+				url:start_url,
 				callback:self.Parse,
 			})
 		}
 	} else {
-		for ind := range self.start_urls {
+		for ind, start_url := range self.start_urls {
 			requestOrItems = append(requestOrItems, &Request{
 				method:"GET",
-				url:fmt.Sprintf(self.start_urls[ind], self.metas[ind]...),
+				url:fmt.Sprintf(start_url, self.metas[ind]...),
 				callback:self.Parse,
 			})
 		}
