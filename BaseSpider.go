@@ -9,10 +9,10 @@ type BaseSpider struct {
 	metas [][]string
 }
 
-func (self *BaseSpider)GetStartRequests(_ *Response) (request_or_items RequestOrItems){
+func (self *BaseSpider)GetStartRequests(_ *Response) (requestOrItems RequestOrItems){
 	if self.metas == nil {
 		for ind := range self.start_urls {
-			append(request_or_items, &Request{
+			requestOrItems = append(requestOrItems, &Request{
 				method:"GET",
 				url:self.start_urls[ind],
 				callback:self.Parse,
@@ -20,7 +20,7 @@ func (self *BaseSpider)GetStartRequests(_ *Response) (request_or_items RequestOr
 		}
 	} else {
 		for ind := range self.start_urls {
-			append(request_or_items, &Request{
+			requestOrItems = append(requestOrItems, &Request{
 				method:"GET",
 				url:fmt.Sprintf(self.start_urls[ind], self.metas[ind]...),
 				callback:self.Parse,
@@ -30,6 +30,6 @@ func (self *BaseSpider)GetStartRequests(_ *Response) (request_or_items RequestOr
 	return
 }
 
-func (self *BaseSpider)Parse(response *Response) (request_or_items RequestOrItems){
+func (self *BaseSpider)Parse(response *Response) (requestOrItems RequestOrItems){
 	return
 }
