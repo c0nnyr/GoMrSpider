@@ -2,7 +2,7 @@ package main
 
 import (
 	_ "fmt"
-	"time"
+	_ "time"
 	"fmt"
 )
 
@@ -21,7 +21,7 @@ func (self *TestItem)String() string {
 
 func NewTestSpider() *TestSpider{
 	self := &TestSpider{}
-	for ind := 0; ind < 100; ind++ {
+	for ind := 0; ind < 5; ind++ {
 		self.start_urls = append(self.start_urls, fmt.Sprintf("http://%v", ind))
 	}
 	//self.start_urls = []string{"http://1.com", "http://2.com"}
@@ -29,14 +29,13 @@ func NewTestSpider() *TestSpider{
 	return self
 }
 
-func (self *TestSpider) Parse(response *Response) (requestOrItems RequestOrItems){
-	requestOrItems = append(requestOrItems, &TestItem{url:response.url})
-	requestOrItems = append(requestOrItems, &Request{url:"2" + response.url, callback:self.ParseDone})
-	time.Sleep(time.Second)
+func (self *TestSpider) Parse(response *Response) (requests []*Request, items []IBaseItem){
+	items = append(items, &TestItem{url:response.url})
+	requests = append(requests, &Request{url:"2" + response.url, callback:self.ParseDone})
 	return
 }
 
-func (self *TestSpider) ParseDone(response *Response) (requestOrItems RequestOrItems){
-	requestOrItems = append(requestOrItems, &TestItem{url:response.url})
+func (self *TestSpider) ParseDone(response *Response) (requests []*Request, items []IBaseItem){
+	items = append(items, &TestItem{url:response.url})
 	return
 }

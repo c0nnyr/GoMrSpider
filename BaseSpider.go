@@ -5,7 +5,7 @@ import (
 )
 
 type IBaseSpider  interface {
-	GetStartRequests(_ *Response) (requestOrItems RequestOrItems)
+	GetStartRequests(_ *Response) (requests []*Request)
 }
 
 type BaseSpider struct {
@@ -14,10 +14,10 @@ type BaseSpider struct {
 	defaultCallback RequestCallback
 }
 
-func (self *BaseSpider)GetStartRequests(_ *Response) (requestOrItems RequestOrItems){
+func (self *BaseSpider)GetStartRequests(_ *Response) (requests []*Request){
 	if self.metas == nil {
 		for _, start_url := range self.start_urls {
-			requestOrItems = append(requestOrItems, &Request{
+			requests = append(requests, &Request{
 				method:"GET",
 				url:start_url,
 				callback:self.defaultCallback,//不能直接用self.Parser，否则就只是绑定到这里的Parser了
@@ -25,7 +25,7 @@ func (self *BaseSpider)GetStartRequests(_ *Response) (requestOrItems RequestOrIt
 		}
 	} else {
 		for ind, start_url := range self.start_urls {
-			requestOrItems = append(requestOrItems, &Request{
+			requests = append(requests, &Request{
 				method:"GET",
 				url:fmt.Sprintf(start_url, self.metas[ind]...),
 				callback:self.defaultCallback,
