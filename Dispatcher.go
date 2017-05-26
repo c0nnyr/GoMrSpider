@@ -32,7 +32,7 @@ type Dispatcher struct {
 
 func NewDispatcher() *Dispatcher{
 	//const MAX_PROCS = runtime.GOMAXPROCS(0)
-	const MAX_PROCS = 1
+	const MAX_PROCS = 0
 	fmt.Printf("max procs %v\n", MAX_PROCS)
 	self := &Dispatcher{
 		config:map[string]int{
@@ -44,7 +44,8 @@ func NewDispatcher() *Dispatcher{
 		requestChan:make(chan *Request, MAX_PROCS),
 		requestHeadChan:make(chan *Request, MAX_PROCS),
 		responseChan:make(chan *ResponsePack, MAX_PROCS),
-		heartChan:make(chan string, MAX_PROCS),
+		//heartChan:make(chan string, MAX_PROCS),
+		heartChan:make(chan string),
 	}
 	return self
 }
@@ -54,46 +55,49 @@ func (self *Dispatcher)SetNetService(net *NetService){
 }
 
 func (self *Dispatcher)Dispatch(spiders... IBaseSpider){
-	for i := 0; i < cap(self.requestChan); i++ {
+	for i := 0; i < Max(cap(self.requestChan), 1); i++ {
 		go self.handleRequest(i)
 	}
-	for i := 0; i < cap(self.itemChan); i++ {
+	for i := 0; i < Max(cap(self.itemChan), 1); i++ {
 		go self.handleItem(i)
 	}
-	for i := 0; i < cap(self.responseChan); i++ {
+	for i := 0; i < Max(cap(self.responseChan), 1); i++ {
 		go self.handleResponse(i)
 	}
 
 	fmt.Printf("Dispatching spiders\n")
-	for _, spider := range spiders{
-		for _, request := range spider.GetStartRequests(nil) {
-			if request, ok := request.(*Request); ok{
-				self.requestChan <- request
+	go func() {
+		for _, spider := range spiders {
+			for _, request := range spider.GetStartRequests(nil) {
+				if request, ok := request.(*Request); ok {
+					self.requestChan <- request
+				}
 			}
 		}
-	}
+	}()
 	self.WaitAllDone()
 	fmt.Printf("All Done!!\n")
 }
 
 func (self *Dispatcher)WaitAllDone(){
-	const DURATION = 2 * time.Second
+	const DURATION = 10 * time.Second
 	timer := time.NewTimer(DURATION)
 
 	OUTER_LOOP:
 	for {
 		timer.Reset(DURATION)
 		select {
-		case v := <-self.heartChan:
-			fmt.Printf("heart beating....%v\n", v)
+		case <-self.heartChan:
+		//case v := <-self.heartChan:
+			//fmt.Printf("heart beating....%v\n", v)
 		case <-timer.C:
 			break OUTER_LOOP
+
 		}
 	}
 }
 
 func (self *Dispatcher)handleRequest(ind int){
-	fmt.Printf("handling request with go %v\n", ind)
 	sendRequest := func (request *Request){
 		self.heartChan<- "handleRequest"
 		fmt.Printf("handleRequest send request %v with go %v\n", request.url, ind)
@@ -116,21 +120,21 @@ func (self *Dispatcher)handleRequest(ind int){
 }
 
 func (self *Dispatcher)handleResponse(ind int){
-	fmt.Printf("handling response with go %v\n", ind)
 	for {
 		responsePack := <-self.responseChan
 		self.heartChan<- "handleResponse"
 		fmt.Printf("handleResponse receive response %v with go %v\n", responsePack.response.url, ind)
 		requestOrItems := responsePack.callback(responsePack.response)
-		fmt.Printf("handleResponse receive response callback %v\n", requestOrItems)
 		for _, requestOrItem := range requestOrItems {
 			switch requestOrItem := requestOrItem.(type) {
-			case *Request://先判断这个
-				if mode := self.config["mode"]; mode == DISPATCH_MODE_DEPTH {
-					self.requestHeadChan <- requestOrItem
-				} else if mode == DISPATCH_MODE_WIDTH{
-					self.requestChan<- requestOrItem
-				}
+			case *Request://先判断这个，因为IBaseItem太多了
+				go func(request *Request){//Request和Response容易造成相互等待，看看如何更轻量化， 避免太多协程了
+					if mode := self.config["mode"]; mode == DISPATCH_MODE_DEPTH {
+						self.requestHeadChan <- requestOrItem
+					} else if mode == DISPATCH_MODE_WIDTH {
+						self.requestChan<- requestOrItem
+					}
+				}(requestOrItem)
 			case IBaseItem:
 				self.itemChan<- requestOrItem
 			default:
@@ -142,7 +146,6 @@ func (self *Dispatcher)handleResponse(ind int){
 }
 
 func (self *Dispatcher)handleItem(ind int){
-	fmt.Printf("handling item with go %v\n", ind)
 	for {
 		item := <-self.itemChan
 		self.heartChan<- "handleItem"
