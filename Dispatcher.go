@@ -15,18 +15,23 @@ type ResponsePack struct {
 	callback RequestCallback
 }
 
+type ItemMidwareFunc func (IBaseItem) bool
+type RequestMidwareFunc func (*Request) bool
+type ResponseMidwareFunc func (*Response) bool
+
 type Dispatcher struct {
 	config map[string]int
 	net *NetService
 	requests []*Request
 
-	itemChan chan IBaseItem
+	requestMidware []RequestMidwareFunc
+	responseMidware []ResponseMidwareFunc
+	itemMidware []ItemMidwareFunc
 
+	itemChan chan IBaseItem
 	requestCacheChan chan *Request
 	requestChan chan *Request
-
 	responseChan chan *ResponsePack
-
 	heartChan chan int
 }
 
@@ -92,7 +97,18 @@ func (self *Dispatcher)WaitAllDone(){
 func (self *Dispatcher)dispatchRequests(spiders ...IBaseSpider){
 	const MAX_BUFFER_COUNT = 200
 	var requests []*Request = make([]*Request, 0, MAX_BUFFER_COUNT)
+	handleMidware := func(request *Request){
+		for _, midware := range self.requestMidware{
+			if ! midware(request){//提供终止服务
+				break
+			}
+		}
+	}
 	insertRequest := func (request *Request){
+		handleMidware(request)
+		if request == nil{
+			return
+		}
 		requests = append(requests, request)//应该是拷贝有用的那一块来扩充吧
 		if mode := self.config["mode"]; mode == DISPATCH_MODE_DEPTH &&
 		len(requests) > cap(self.requestChan){//考虑到并行度,这种情况下拷贝才有价值
@@ -101,8 +117,15 @@ func (self *Dispatcher)dispatchRequests(spiders ...IBaseSpider){
 		}
 	}
 
+
 	for _, spider := range spiders {
-		requests = append(requests, spider.GetStartRequests(nil)...)
+		for _, request := range spider.GetStartRequests(nil){
+			handleMidware(request)
+			if request == nil{
+				return
+			}
+			requests = append(requests, request)
+		}
 	}
 
 	//handledRequestCount := 0
@@ -141,8 +164,16 @@ func (self *Dispatcher)dispatchRequests(spiders ...IBaseSpider){
 func (self *Dispatcher)handleRequest(ind int){
 	sendRequest := func (request *Request){
 		self.heartChan<- 1
-		fmt.Printf("handleRequest send request %v with go %v\n", request.url, ind)
+		fmt.Printf("handleRequest send request %v with go %v\n", request, ind)
 		response := self.net.SendRequest(request)
+		for _, midware := range self.responseMidware{
+			if !midware(response){
+				break
+			}
+		}
+		if response == nil{
+			return
+		}
 		self.responseChan<- &ResponsePack{response, request.callback}
 	}
 	for {
@@ -155,7 +186,7 @@ func (self *Dispatcher)handleResponse(ind int){
 	for {
 		responsePack := <-self.responseChan
 		self.heartChan<- 2
-		fmt.Printf("handleResponse receive response %v with go %v\n", responsePack.response.url, ind)
+		fmt.Printf("handleResponse receive response %v with go %v\n", responsePack.response, ind)
 		requests, items := responsePack.callback(responsePack.response)
 		for _, request := range requests {
 			self.requestCacheChan<- request
@@ -170,6 +201,21 @@ func (self *Dispatcher)handleItem(ind int){
 	for {
 		item := <-self.itemChan
 		self.heartChan<- 3
+		for _, midware := range self.itemMidware{
+			if ! midware(item){//提供终止服务
+				break
+			}
+		}
 		fmt.Printf("handleItem receive item %v with go %v\n", item, ind)
 	}
+}
+
+func (self *Dispatcher)AddRequestMidware(midware RequestMidwareFunc){
+	self.requestMidware = append(self.requestMidware, midware)
+}
+func (self *Dispatcher)AddResponseMidware(midware ResponseMidwareFunc){
+	self.responseMidware = append(self.responseMidware, midware)
+}
+func (self *Dispatcher)AddItemMidware(midware ItemMidwareFunc){
+	self.itemMidware = append(self.itemMidware, midware)
 }
