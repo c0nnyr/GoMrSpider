@@ -9,3 +9,8 @@ type Request struct {
 	data map[string]string
 	callback RequestCallback
 }
+
+func (self *Request)String() string{
+	return self.url
+}
+

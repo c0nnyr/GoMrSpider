@@ -21,7 +21,7 @@ func (self *TestItem)String() string {
 
 func NewTestSpider() *TestSpider{
 	self := &TestSpider{}
-	for ind := 0; ind < 5; ind++ {
+	for ind := 0; ind < 50; ind++ {
 		self.start_urls = append(self.start_urls, fmt.Sprintf("http://%v", ind))
 	}
 	//self.start_urls = []string{"http://1.com", "http://2.com"}

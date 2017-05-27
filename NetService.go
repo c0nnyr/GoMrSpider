@@ -3,7 +3,7 @@ import (
 	_ "net/url"
 	_ "net/http"
 	_ "io/ioutil"
-	_ "time"
+	"time"
 )
 
 type NetService struct {
@@ -36,7 +36,7 @@ func (self *NetService) SendRequest(request *Request) *Response{
 	//	body:string(body),
 	//	url:request.url,
 	//}
-	//time.Sleep(time.Second)
+	time.Sleep(2 * time.Second)
 	return &Response{
 		body:"noting",
 		url:request.url,
