@@ -11,7 +11,6 @@ type TestSpider struct{
 }
 
 type TestItem struct{
-	BaseItem
 	url string
 }
 

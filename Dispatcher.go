@@ -1,8 +1,9 @@
 package main
 import (
-	"fmt"
+	"log"
 	"time"
 	"runtime"
+	"fmt"
 )
 
 const (
@@ -46,7 +47,7 @@ type Dispatcher struct {
 
 func NewDispatcher() *Dispatcher{
 	MAX_PROCS := runtime.GOMAXPROCS(0)
-	fmt.Printf("max procs %v\n", MAX_PROCS)
+	log.Printf("max procs %v\n", MAX_PROCS)
 	self := &Dispatcher{
 		config:map[string]int{
 			"mode":DISPATCH_MODE_WIDTH,//遍历模式
@@ -92,7 +93,7 @@ func (self *Dispatcher)Dispatch(spiders... IBaseSpider){
 	}
 	totalRoutineCount += routineCount
 	self.waitAllDone(totalRoutineCount)
-	fmt.Printf("All Done!!\n")
+	log.Printf("All Done!!\n")
 }
 
 func (self *Dispatcher)waitAllDone(totalRoutineCount int){
@@ -111,24 +112,24 @@ func (self *Dispatcher)waitAllDone(totalRoutineCount int){
 		select {
 		case v := <-self.heartChan:
 			subRoutinesStatus[curInd][v.routineInd] = v
-			fmt.Printf("heart beating....%v\n", v)
+			//log.Printf("heart beating....%v\n", v)
 		case <-timer.C:
-			fmt.Printf("time out \n")
+			log.Printf("time out \n")
 			isAllNil := true
 			for _, status := range subRoutinesStatus[curInd]{
 				if status != nil && status.running{//有活着的超时了
-					fmt.Printf("has some routine working\n")
+					log.Printf("has some routine working\n")
 					continue OUTER_LOOP
 				} else if status != nil{
 					isAllNil = false
 				}
 			}
 			if isAllNil{
-				fmt.Printf("all nil, get out\n")
+				log.Printf("all nil, get out\n")
 				break OUTER_LOOP//真正全部结束了
 			}
 
-			fmt.Printf("give another chance to wait\n")
+			log.Printf("give another chance to wait\n")
 			curInd = (curInd + 1) % 2
 			//等下一次超时过来，看看你们是不是真的全死了
 			for ind := range subRoutinesStatus[curInd]{
@@ -202,7 +203,6 @@ func (self *Dispatcher)dispatchRequests(ind int, spiders ...IBaseSpider){
 					//copy(newRequests, requests)
 					//requests = newRequests
 					//}
-
 					}
 			}
 		} else{
@@ -219,8 +219,21 @@ func (self *Dispatcher)handleRequest(ind int){
 		self.registerStatus(ind, false)
 		request := <-self.requestChan
 		self.registerStatus(ind, true)
-		fmt.Printf("handleRequest send request %v with go %v\n", request, ind)
-		response := self.net.SendRequest(request)
+		log.Printf("handleRequest send request %v with go %v\n", request, ind)
+		var response *Response = nil
+		const MAX_RETRY_TIMES = 10
+		for i := 0; i < MAX_RETRY_TIMES; i++ {
+			response = self.net.SendRequest(request)
+			if response != nil{
+				break
+			}
+			time.Sleep(2 * time.Second)
+		}
+		if response == nil {
+			log.Printf("Cannot get response for request %v", request)
+			return
+		}
+
 		for _, midware := range self.responseMidware{
 			if !midware(response){
 				break
@@ -238,7 +251,7 @@ func (self *Dispatcher)handleResponse(ind int){
 		self.registerStatus(ind, false)
 		responsePack := <-self.responseChan
 		self.registerStatus(ind, true)
-		fmt.Printf("handleResponse receive response %v with go %v\n", responsePack.response, ind)
+		log.Printf("handleResponse receive response %v with go %v\n", responsePack.response, ind)
 		requests, items := responsePack.callback(responsePack.response)
 		for _, request := range requests {
 			self.requestCacheChan<- request
@@ -259,7 +272,7 @@ func (self *Dispatcher)handleItem(ind int){
 				break
 			}
 		}
-		fmt.Printf("handleItem receive item %v with go %v\n", item, ind)
+		log.Printf("handleItem receive item %v with go %v\n", item, ind)
 	}
 }
 

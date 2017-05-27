@@ -5,7 +5,8 @@ import (
 )
 
 type IBaseSpider  interface {
-	GetStartRequests(_ *Response) (requests []*Request)
+	GetStartRequests(*Response) ([]*Request)
+	IsValidResponse(*Response) bool
 }
 
 type BaseSpider struct {
@@ -33,5 +34,9 @@ func (self *BaseSpider)GetStartRequests(_ *Response) (requests []*Request){
 		}
 	}
 	return
+}
+
+func (self *BaseSpider)IsValidResponse(_ *Response)bool{
+	return false
 }
 
