@@ -1,4 +1,4 @@
-package main
+package mrspider
 
 import (
 	_ "fmt"
@@ -21,10 +21,10 @@ func (self *TestItem)String() string {
 func NewTestSpider() *TestSpider{
 	self := &TestSpider{}
 	for ind := 0; ind < 50; ind++ {
-		self.start_urls = append(self.start_urls, fmt.Sprintf("http://%v", ind))
+		self.StartUrls = append(self.StartUrls, fmt.Sprintf("http://%v", ind))
 	}
 	//self.start_urls = []string{"http://1.com", "http://2.com"}
-	self.defaultCallback = self.Parse
+	self.DefaultCallback = self.Parse
 	return self
 }
 

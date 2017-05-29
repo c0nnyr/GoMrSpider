@@ -1,4 +1,4 @@
-package main
+package mrspider
 import (
 	"log"
 	"time"
@@ -233,7 +233,6 @@ func (self *Dispatcher)handleRequest(ind int){
 			log.Printf("Cannot get response for request %v", request)
 			return
 		}
-
 		for _, midware := range self.responseMidware{
 			if !midware(response){
 				break

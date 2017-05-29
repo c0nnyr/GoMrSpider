@@ -1,4 +1,4 @@
-package main
+package mrspider
 
 type RequestOrItems []interface{}//会产生重新拷贝吗?
 type RequestCallback func (*Response)([]*Request, []IBaseItem)

@@ -1,4 +1,4 @@
-package main
+package mrspider
 
 func Max(a, b int) int{
 	if a > b {

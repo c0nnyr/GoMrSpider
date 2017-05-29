@@ -1,11 +1,11 @@
-package main
+package mrspider
 import (
 	"net/url"
 	"net/http"
 	"io/ioutil"
-	_ "time"
 	"log"
-	"os"
+	"gopkg.in/xmlpath.v2"
+	"bytes"
 )
 
 type NetService struct {
@@ -15,14 +15,29 @@ type NetService struct {
 func (self *NetService) SendRequest(request *Request) *Response{
 	var res *http.Response
 	var err error
+	var target_url string
+	response := &Response{}
 	if request.method == "GET" {
-		target_url := request.url
+		target_url = request.url
 		if request.data != nil {
 			params := url.Values{}
 			for k, v := range request.data{
 				params[k] = []string{v}
 			}
 			target_url = request.url + params.Encode()
+		}
+		if ENABLE_RESPONSE_CACHE{
+			response_cache := &ResponseCache{RequestFullUrl:target_url}
+			if DBFind(response_cache) == nil {
+				response.url = target_url
+				response.body = response_cache.ResponseBody
+				log.Println("using response cache")
+				response.htmlRoot, err = xmlpath.ParseHTML(bytes.NewBuffer(response.body))//有可能是其他类型的
+				if err != nil{
+					log.Fatalln("cannot parse html", err)
+				}
+				return response
+			}
 		}
 		res, err = http.Get(target_url)
 		if err != nil {
@@ -36,13 +51,18 @@ func (self *NetService) SendRequest(request *Request) *Response{
 
 	defer res.Body.Close()
 	body, _ := ioutil.ReadAll(res.Body)
-	return &Response{
-		body:string(body),
-		url:request.url,
+
+	if ENABLE_RESPONSE_CACHE{
+		response_cache := &ResponseCache{
+			RequestFullUrl:target_url,
+			ResponseBody:body,
+		}
+		DBUpsert(response_cache)
 	}
-	//time.Sleep(2 * time.Second)
-	//return &Response{
-	//	body:"noting",
-	//	url:request.url,
-	//}
+
+	response.body = body
+	response.url = target_url
+	response.htmlRoot, err = xmlpath.ParseHTML(bytes.NewBuffer(response.body))//有可能是其他类型的
+
+	return response
 }

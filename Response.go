@@ -1,12 +1,14 @@
-package main
+package mrspider
 
 import (
 	"fmt"
+	"gopkg.in/xmlpath.v2"
 )
 
 type Response struct {
-	body string
+	body []byte
 	url string
+	htmlRoot *xmlpath.Node
 }
 func (self *Response)String() string{
 	//return fmt.Sprintf("%v, %v", self.url, self.body[:100])
