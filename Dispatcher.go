@@ -4,11 +4,14 @@ import (
 	"time"
 	"runtime"
 	"fmt"
+	"encoding/json"
+	"io/ioutil"
+	"path"
 )
 
 const (
-	DISPATCH_MODE_DEPTH = iota
-	DISPATCH_MODE_WIDTH
+	DISPATCH_MODE_DEPTH = "depth"
+	DISPATCH_MODE_WIDTH = "width"
 )
 
 type ResponsePack struct {
@@ -29,8 +32,13 @@ type ItemMidwareFunc func (IBaseItem) bool
 type RequestMidwareFunc func (*Request) bool
 type ResponseMidwareFunc func (*Response) bool
 
+type DispatchConfig struct {
+	Mode string
+	MaxProcs int
+}
+
 type Dispatcher struct {
-	config map[string]int
+	config DispatchConfig
 	net *NetService
 	requests []*Request
 
@@ -45,27 +53,40 @@ type Dispatcher struct {
 	heartChan chan *RoutineStatus
 }
 
+
 func NewDispatcher() *Dispatcher{
 	MAX_PROCS := runtime.GOMAXPROCS(0)
-	log.Printf("max procs %v\n", MAX_PROCS)
 	self := &Dispatcher{
-		config:map[string]int{
-			"mode":DISPATCH_MODE_WIDTH,//遍历模式
-			"max_procs":MAX_PROCS,
+		config:DispatchConfig{
+			Mode:DISPATCH_MODE_WIDTH,//遍历模式
+			MaxProcs:MAX_PROCS,
 		},
-		net:nil,
-
-		itemChan:make(chan IBaseItem, MAX_PROCS),
 		requestCacheChan:make(chan *Request),//这个只要一路就好了,总管分发
-		requestChan:make(chan *Request, MAX_PROCS),
-		responseChan:make(chan *ResponsePack, MAX_PROCS),
-		heartChan:make(chan *RoutineStatus, MAX_PROCS),
 	}
+	self.initChan()
 	return self
 }
 
-func (self *Dispatcher)SetConfig(config map[string]int){
-	self.config = config
+func (self *Dispatcher)initChan(){
+	maxProcs := self.config.MaxProcs
+	self.itemChan = make(chan IBaseItem, maxProcs)
+	self.requestChan = make(chan *Request, maxProcs)
+	self.responseChan = make(chan *ResponsePack, maxProcs)
+	self.heartChan = make(chan *RoutineStatus, maxProcs)
+}
+
+func (self *Dispatcher)SetConfigFile(fileName string){
+	data, err := ioutil.ReadFile(path.Join(GetCurrentDir(), fileName))
+	if err != nil{
+		log.Fatalln(err)
+		return
+	}
+	err = json.Unmarshal(data, &self.config)
+	if err != nil {
+		log.Fatalln(err)
+		return
+	}
+	self.initChan()
 }
 
 func (self *Dispatcher)SetNetService(net *NetService){
@@ -162,7 +183,7 @@ func (self *Dispatcher)dispatchRequests(ind int, spiders ...IBaseSpider){
 			return
 		}
 		requests = append(requests, request)//应该是拷贝有用的那一块来扩充吧
-		if mode := self.config["mode"]; mode == DISPATCH_MODE_DEPTH &&
+		if mode := self.config.Mode; mode == DISPATCH_MODE_DEPTH &&
 		len(requests) > cap(self.requestChan){//考虑到并行度,这种情况下拷贝才有价值
 			copy(requests[1:], requests[:len(requests) - 1]) //头部插入
 			requests[0] = request

@@ -2,7 +2,6 @@ package mrspider
 
 import (
 	"fmt"
-	_ "gopkg.in/xmlpath.v2"
 	"gopkg.in/xmlpath.v2"
 	"log"
 )

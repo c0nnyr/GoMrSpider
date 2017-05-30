@@ -5,13 +5,6 @@ import (
 	"mrspider/proxy"
 )
 
-func save_to_db(item mrspider.IBaseItem) bool{
-	if item, ok := item.(mrspider.IDBItem); ok{
-		mrspider.DBUpsert(item)
-	}
-	return true
-}
-
 func main() {
 	session := mrspider.CreateMongoSession()
 	if session == nil {
@@ -19,7 +12,9 @@ func main() {
 	}
 	dispatcher := mrspider.NewDispatcher()
 	dispatcher.SetNetService(&mrspider.NetService{})
-	//dispatcher.Dispatch(mrspider.NewTestSpider())
-	dispatcher.AddItemMidware(save_to_db)
+	dispatcher.AddItemMidware(mrspider.ItemMidwareSaveToDB)
+	dispatcher.AddResponseMidware(mrspider.ResponseMidwareWait)
+	dispatcher.SetConfigFile("dispatcher.conf")
 	dispatcher.Dispatch(proxy.NewKuaidailiProxySpider())
+	//proxy.TestProxy(nil)
 }

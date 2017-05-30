@@ -52,4 +52,14 @@ func DBFind(item IDBItem) error{
 	return nil
 }
 
+func DBFindAll(collectionName string) *mgo.Iter{
+	if mongoBasicSesstion == nil {
+		return nil
+	}
+	session := mongoBasicSesstion.Clone()
+	defer session.Close()
+	c := session.DB(MONGO_DB).C(collectionName)
+	return c.Find(nil).Iter()
+}
+
 ////////////////////////////////////////////////

@@ -5,6 +5,9 @@ import (
 	"mrspider"
 	"time"
 	"labix.org/v2/mgo/bson"
+	"net/url"
+	"net/http"
+	"strings"
 )
 
 type ProxyItem struct{
@@ -55,4 +58,13 @@ func (self *ProxyItem)GetMgoID() *bson.M{
 
 func (self *ProxyItem)GetCollectionName() string{
 	return "proxy_item"
+}
+
+func (self *ProxyItem)CreateProxyClient(timeOut time.Duration) *http.Client{
+	proxyFunc := func (_ *http.Request) (*url.URL, error) {
+		return url.Parse(fmt.Sprintf("%v://%v:%v", strings.ToLower(self.LinkType), self.IP, self.Port))
+	}
+	transport := &http.Transport{Proxy:proxyFunc}
+	client := &http.Client{Transport:transport, Timeout:timeOut}
+	return client
 }

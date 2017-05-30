@@ -18,20 +18,3 @@ func (self *ResponseCache)GetMgoID() *bson.M{
 func (self *ResponseCache)GetCollectionName() string{
 	return MONGO_RESPONSE_CACHE_COLLECTION
 }
-
-// mongo
-//type ProxyItem struct {
-//	IP              string        `bson:"ip"`
-//	Port            string        `bson:"port"`
-//	Country         string        `bson:"country"`
-//	HideType       string        `bson:"hide_type"`
-//	ConnectionType string        `bson:"connection_type"`
-//	ID              bson.ObjectId `bson:"_id"`
-//}
-//
-//func (self *ProxyItem) Upsert(){
-//	session := mongoBasicSesstion.Clone()
-//	c := session.DB(PROXY_MDB_NAME).C(PROXY_COLLECTION_ITEMS)
-//	c.Upsert(bson.M{"ip":self.IP, })
-//}
-

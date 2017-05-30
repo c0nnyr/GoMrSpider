@@ -1,9 +1,8 @@
 package proxy
 
 import (
-	_ "fmt"
-	"log"
 	"mrspider"
+	"log"
 )
 
 type KuaidailiProxySpider struct{
@@ -12,7 +11,14 @@ type KuaidailiProxySpider struct{
 
 func NewKuaidailiProxySpider() *KuaidailiProxySpider{
 	self := &KuaidailiProxySpider{}
-	self.StartUrls = append(self.StartUrls, "http://www.kuaidaili.com/free/outha/1/")
+	const MAX_PAGE = 5
+	//TEMPLATE_URLS := []string{"http://www.kuaidaili.com/free/outha/%v/", "http://www.kuaidaili.com/free/outtr/%v/",
+	//	"http://www.kuaidaili.com/free/inha/%v/", "http://www.kuaidaili.com/free/intr/%v/"}
+	//for _, template := range TEMPLATE_URLS{
+	//	for i := 1; i <= MAX_PAGE; i++ {
+	//		self.StartUrls = append(self.StartUrls, fmt.Sprintf(template, i))
+	//	}
+	//}
 
 	self.DefaultCallback = self.Parse
 	self.ValidXpath = `//*[@id="list"]/table`
@@ -31,6 +37,7 @@ func (self *KuaidailiProxySpider) Parse(response *mrspider.Response) (requests [
 		}
 
 	items = append(items, self.ParseItems(response, attrMap, NewProxyItem, listXpath)...)
+	log.Println("parsed proxies", items)
 	return
 }
 

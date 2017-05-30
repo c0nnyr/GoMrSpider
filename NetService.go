@@ -26,7 +26,7 @@ func (self *NetService) SendRequest(request *Request) *Response{
 			}
 			target_url = request.url + params.Encode()
 		}
-		if ENABLE_RESPONSE_CACHE{
+		if ENABLE_USE_RESPONSE_CACHE{
 			response_cache := &ResponseCache{RequestFullUrl:target_url}
 			if DBFind(response_cache) == nil {
 				response.url = target_url
@@ -39,6 +39,7 @@ func (self *NetService) SendRequest(request *Request) *Response{
 				return response
 			}
 		}
+		log.Println("requesting", target_url)
 		res, err = http.Get(target_url)
 		if err != nil {
 			log.Printf("HTTP GET ERROR %v", err)
@@ -52,13 +53,15 @@ func (self *NetService) SendRequest(request *Request) *Response{
 	defer res.Body.Close()
 	body, _ := ioutil.ReadAll(res.Body)
 
-	if ENABLE_RESPONSE_CACHE{
+	if ENABLE_SAVE_RESPONSE_CACHE{
 		response_cache := &ResponseCache{
 			RequestFullUrl:target_url,
 			ResponseBody:body,
 		}
 		DBUpsert(response_cache)
 	}
+
+	log.Printf("received body len %v", len(body))
 
 	response.body = body
 	response.url = target_url
