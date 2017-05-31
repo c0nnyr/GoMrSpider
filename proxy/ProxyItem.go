@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"net/http"
 	"strings"
+	"net"
 )
 
 type ProxyItem struct{
@@ -64,7 +65,23 @@ func (self *ProxyItem)CreateProxyClient(timeOut time.Duration) *http.Client{
 	proxyFunc := func (_ *http.Request) (*url.URL, error) {
 		return url.Parse(fmt.Sprintf("%v://%v:%v", strings.ToLower(self.LinkType), self.IP, self.Port))
 	}
-	transport := &http.Transport{Proxy:proxyFunc}
+	dialTimeout := func (network, addr string) (net.Conn, error) {
+		conn, err := net.DialTimeout(network, addr, time.Second * 5)
+		if err != nil {
+			return conn, err
+		}
+
+		tcp_conn := conn.(*net.TCPConn)
+		tcp_conn.SetKeepAlive(false)
+
+		return tcp_conn, err
+	}
+
+	transport := &http.Transport{
+		Proxy:proxyFunc,
+		DisableKeepAlives:true,
+		Dial:dialTimeout,
+	}
 	client := &http.Client{Transport:transport, Timeout:timeOut}
 	return client
 }

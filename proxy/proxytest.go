@@ -12,7 +12,7 @@ type timeoutError interface {
 func TestProxy(t *testing.T){
 	mrspider.CreateMongoSession()
 	proxy := &ProxyItem{}
-	iter := mrspider.DBFindAll(proxy.GetCollectionName())
+	session, iter := mrspider.DBFindAll(proxy.GetCollectionName())
 	for iter.Next(proxy){
 		func (){
 			log.Println(proxy)
@@ -21,7 +21,7 @@ func TestProxy(t *testing.T){
 			}
 			client := proxy.CreateProxyClient(3 * time.Second)
 			log.Println("trying connecting")
-			res, err := client.Get("http://www.whatismyip.com.tw")
+			res, err := client.Get("http://www.ip138.com")
 			if err != nil {
 				log.Printf("%T %v\n", err, err)
 				return
@@ -32,5 +32,6 @@ func TestProxy(t *testing.T){
 			time.Sleep(2 * time.Second)
 		}()
 	}
+	session.Close()
 	//t.FailNow()
 }
